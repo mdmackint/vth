@@ -1,0 +1,14 @@
+<html>
+    <head>
+        <meta charset="utf-8"/>
+        <script src="wasm_exec.js"></script>
+        <script>
+            const go = new Go();
+            WebAssembly.instantiateStreaming(fetch("vth.wasm"), go.importObject).then((result) => {
+                document.getElementById("loading").remove()
+                go.run(result.instance);
+            });
+        </script>
+    </head>
+    <body><br/><p id="loading" style="text-align:center;">loading game...</p></body>
+</html
