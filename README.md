@@ -1,5 +1,5 @@
 # vth
-Collision simulator written in Go, using Ebitengine and [Jake Coffman](https://github.com/jakecoffman)'s implementation of [Chipmunk2D for Go](https://github.com/jakecoffman/cp).
+Collision simulator written in [Go](https://go.dev), using [Ebitengine](https://github.com/hajimehoshi/ebiten) and [Jake Coffman](https://github.com/jakecoffman)'s implementation of [Chipmunk2D for Go](https://github.com/jakecoffman/cp).
 
 Super simple, strike Space to make a ball appear and roll down the path to fall off the bottom of the window.
 
