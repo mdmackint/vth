@@ -6,9 +6,10 @@
             const go = new Go();
             WebAssembly.instantiateStreaming(fetch("vth.wasm"), go.importObject).then((result) => {
                 document.getElementById("loading").remove()
+document.getElementById("break").remove()
                 go.run(result.instance);
             });
         </script>
     </head>
-    <body><br/><p id="loading" style="text-align:center;">loading game...</p></body>
+    <body><br id="break"/><p id="loading" style="text-align:center;">loading game...</p></body>
 </html>
