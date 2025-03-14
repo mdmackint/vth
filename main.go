@@ -4,8 +4,12 @@ import (
 	"image/color"
 	"log"
 	"math/rand"
+	"embed"
+	_ "image/png"
+	"flag"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jakecoffman/cp/v2"
@@ -31,11 +35,16 @@ var (
 	mass      float64
 	moment    float64
 	counter   uint64 // Should be used when drawing
-	writer    uint64 // Should be used when rendering
+	writer    uint64 // Should be used when simulating
 	obst      []*cp.Shape
 	radius    float64
 	lines     []line
+	actor *ebiten.Image
+	imgMode *bool
 )
+
+//go:embed data
+var fs embed.FS
 
 func obstGen(x0, y0, x1, y1 float64, visible bool) {
 	if visible {
@@ -47,6 +56,15 @@ func obstGen(x0, y0, x1, y1 float64, visible bool) {
 }
 
 func init() {
+	imgMode = flag.Bool("i",false,"Show actor image instead of circle")
+	flag.Parse()
+	if *imgMode {
+		var err error
+		actor, _, err = ebitenutil.NewImageFromFileSystem(fs,"data/actor.png")
+		if err != nil {
+			log.Fatalln("Failed to load actor")
+		}
+	}
 	space = cp.NewSpace()
 	space.SetGravity(cp.Vector{X: 0.0, Y: 300.0})
 	obstGen(160, 100, 320, 60, true)
@@ -126,7 +144,14 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{0xff, 0xe0, 0xeb, 0xff})
 	var x int = 0
 	for x < int(counter) {
-		vector.DrawFilledCircle(screen, float32(g.Pos[x].X), float32(g.Pos[x].Y), float32(radius), color.RGBA{0xef, 0x60, 0x6b, 0xff}, true)
+		if *imgMode {
+			opts := &ebiten.DrawImageOptions{}
+			opts.GeoM.Scale(16.0/350.0,16.0/350.0)
+			opts.GeoM.Translate(g.Pos[x].X-8, g.Pos[x].Y-8)
+			screen.DrawImage(actor,opts)
+		} else {
+			vector.DrawFilledCircle(screen, float32(g.Pos[x].X), float32(g.Pos[x].Y), float32(radius), color.RGBA{0xef, 0x60, 0x6b, 0xff}, true)
+		}
 		x++
 	}
 	for _, item := range lines {
@@ -135,11 +160,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 func (g *Game) Layout(ow, oh int) (w, h int) {
-	return 0x280, 0x300
+	return 0x280, 0x2ba
 }
 func main() {
 	ebiten.SetWindowTitle("vth")
-	ebiten.SetWindowSize(0x280, 0x300)
+	ebiten.SetWindowSize(0x280, 0x2ba)
 	if err := ebiten.RunGame(&Game{}); err != nil {
 		log.Fatalln(err)
 	}
