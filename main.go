@@ -4,6 +4,7 @@ import (
 	"embed"
 	"flag"
 	"fmt"
+	"image"
 	"image/color"
 	_ "image/png"
 	"log"
@@ -44,6 +45,7 @@ var (
 	imgMode    bool
 	autonomous *bool
 	debugging  *bool
+	icon       []image.Image
 )
 
 //go:embed data
@@ -64,6 +66,11 @@ func init() {
 	if err != nil {
 		log.Fatalln("Failed to load actor")
 	}
+	_, iconImage, err := ebitenutil.NewImageFromFileSystem(fs,"data/icon.png")
+	if err != nil {
+		log.Fatalln("Failed to load logo")
+	}
+	icon = append(icon, iconImage)
 	space = cp.NewSpace()
 	space.SetGravity(cp.Vector{X: 0.0, Y: 300.0})
 	obstGen(160, 100, 320, 60, true)
@@ -186,6 +193,7 @@ func main() {
 	imgMode = *imgFlag == true
 	ebiten.SetWindowTitle("vth")
 	ebiten.SetWindowSize(0x280, 0x2ba)
+	ebiten.SetWindowIcon(icon)
 	if *resizable {
 		ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	}
