@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"flag"
+	"fmt"
 	"image/color"
 	_ "image/png"
 	"log"
@@ -40,8 +41,9 @@ var (
 	radius     float64
 	lines      []line
 	actor      *ebiten.Image
-	imgMode    *bool
+	imgMode    bool
 	autonomous *bool
+	debugging  *bool
 )
 
 //go:embed data
@@ -57,6 +59,11 @@ func obstGen(x0, y0, x1, y1 float64, visible bool) {
 }
 
 func init() {
+	var err error
+	actor, _, err = ebitenutil.NewImageFromFileSystem(fs, "data/actor.png")
+	if err != nil {
+		log.Fatalln("Failed to load actor")
+	}
 	space = cp.NewSpace()
 	space.SetGravity(cp.Vector{X: 0.0, Y: 300.0})
 	obstGen(160, 100, 320, 60, true)
@@ -98,6 +105,9 @@ func (g *Game) Update() error {
 	for range releasedTouches {
 		touch = true
 		break
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyI) {
+		imgMode = !imgMode
 	}
 	if (inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) || inpututil.IsKeyJustPressed(ebiten.KeySpace) || touch) && !*autonomous {
 		if writer > 499 {
@@ -145,7 +155,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{0xff, 0xe0, 0xeb, 0xff})
 	var x int = 0
 	for x < int(counter) {
-		if *imgMode {
+		if imgMode {
 			opts := &ebiten.DrawImageOptions{}
 			opts.GeoM.Scale(16.0/350.0, 16.0/350.0)
 			opts.GeoM.Translate(g.Pos[x].X-8, g.Pos[x].Y-8)
@@ -158,6 +168,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	for _, item := range lines {
 		vector.StrokeLine(screen, item.X0, item.Y0, item.X1, item.Y1, item.Width, color.RGBA{0xef, 0x60, 0x6b, 0xff}, true)
 	}
+	if *debugging {
+		msg := fmt.Sprintf("TPS: %0.2f\nFPS: %0.2f\n", ebiten.ActualTPS(), ebiten.ActualFPS())
+		ebitenutil.DebugPrint(screen,msg)
+	}
 }
 
 func (g *Game) Layout(ow, oh int) (w, h int) {
@@ -165,17 +179,16 @@ func (g *Game) Layout(ow, oh int) (w, h int) {
 }
 func main() {
 	autonomous = flag.Bool("a", false, "Run autonomously only and ignore user input")
-	imgMode = flag.Bool("i", false, "Show actor image instead of circle")
+	debugging = flag.Bool("d", false, "Show TPS and FPS in window corner")
+	var resizable = flag.Bool("r", false, "Makes the window resizable")
+	var imgFlag = flag.Bool("i", false, "Show actor image instead of circle")
 	flag.Parse()
-	if *imgMode {
-		var err error
-		actor, _, err = ebitenutil.NewImageFromFileSystem(fs, "data/actor.png")
-		if err != nil {
-			log.Fatalln("Failed to load actor")
-		}
-	}
+	imgMode = *imgFlag == true
 	ebiten.SetWindowTitle("vth")
 	ebiten.SetWindowSize(0x280, 0x2ba)
+	if *resizable {
+		ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	}
 	if err := ebiten.RunGame(&Game{}); err != nil {
 		log.Fatalln(err)
 	}
