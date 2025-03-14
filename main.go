@@ -56,15 +56,6 @@ func obstGen(x0, y0, x1, y1 float64, visible bool) {
 }
 
 func init() {
-	imgMode = flag.Bool("i",false,"Show actor image instead of circle")
-	flag.Parse()
-	if *imgMode {
-		var err error
-		actor, _, err = ebitenutil.NewImageFromFileSystem(fs,"data/actor.png")
-		if err != nil {
-			log.Fatalln("Failed to load actor")
-		}
-	}
 	space = cp.NewSpace()
 	space.SetGravity(cp.Vector{X: 0.0, Y: 300.0})
 	obstGen(160, 100, 320, 60, true)
@@ -169,6 +160,15 @@ func (g *Game) Layout(ow, oh int) (w, h int) {
 	return 0x280, 0x2ba
 }
 func main() {
+	imgMode = flag.Bool("i",false,"Show actor image instead of circle")
+	flag.Parse()
+	if *imgMode {
+		var err error
+		actor, _, err = ebitenutil.NewImageFromFileSystem(fs,"data/actor.png")
+		if err != nil {
+			log.Fatalln("Failed to load actor")
+		}
+	}
 	ebiten.SetWindowTitle("vth")
 	ebiten.SetWindowSize(0x280, 0x2ba)
 	if err := ebiten.RunGame(&Game{}); err != nil {
