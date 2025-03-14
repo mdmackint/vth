@@ -98,7 +98,13 @@ func init() {
 
 func (g *Game) Update() error {
 	var auto bool = g.Inputless >= 900
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) || inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+	var releasedTouches = inpututil.AppendJustReleasedTouchIDs([]ebiten.TouchID{})
+	var touch bool = false
+	for range releasedTouches {
+		touch = true
+		break
+	}
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) || inpututil.IsKeyJustPressed(ebiten.KeySpace) || touch {
 		if writer > 499 {
 			writer = 0
 		}
