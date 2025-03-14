@@ -1,12 +1,12 @@
 package main
 
 import (
+	"embed"
+	"flag"
 	"image/color"
+	_ "image/png"
 	"log"
 	"math/rand"
-	"embed"
-	_ "image/png"
-	"flag"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -30,17 +30,18 @@ type line struct {
 }
 
 var (
-	space     *cp.Space
-	ballArray [500]*cp.Body
-	mass      float64
-	moment    float64
-	counter   uint64 // Should be used when drawing
-	writer    uint64 // Should be used when simulating
-	obst      []*cp.Shape
-	radius    float64
-	lines     []line
-	actor *ebiten.Image
-	imgMode *bool
+	space      *cp.Space
+	ballArray  [500]*cp.Body
+	mass       float64
+	moment     float64
+	counter    uint64 // Should be used when drawing
+	writer     uint64 // Should be used when simulating
+	obst       []*cp.Shape
+	radius     float64
+	lines      []line
+	actor      *ebiten.Image
+	imgMode    *bool
+	autonomous *bool
 )
 
 //go:embed data
@@ -89,13 +90,16 @@ func init() {
 
 func (g *Game) Update() error {
 	var auto bool = g.Inputless >= 900
+	if *autonomous {
+		auto = true
+	}
 	var releasedTouches = inpututil.AppendJustReleasedTouchIDs([]ebiten.TouchID{})
 	var touch bool = false
 	for range releasedTouches {
 		touch = true
 		break
 	}
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) || inpututil.IsKeyJustPressed(ebiten.KeySpace) || touch {
+	if (inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) || inpututil.IsKeyJustPressed(ebiten.KeySpace) || touch) && !*autonomous {
 		if writer > 499 {
 			writer = 0
 		}
@@ -143,9 +147,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	for x < int(counter) {
 		if *imgMode {
 			opts := &ebiten.DrawImageOptions{}
-			opts.GeoM.Scale(16.0/350.0,16.0/350.0)
+			opts.GeoM.Scale(16.0/350.0, 16.0/350.0)
 			opts.GeoM.Translate(g.Pos[x].X-8, g.Pos[x].Y-8)
-			screen.DrawImage(actor,opts)
+			screen.DrawImage(actor, opts)
 		} else {
 			vector.DrawFilledCircle(screen, float32(g.Pos[x].X), float32(g.Pos[x].Y), float32(radius), color.RGBA{0xef, 0x60, 0x6b, 0xff}, true)
 		}
@@ -160,11 +164,12 @@ func (g *Game) Layout(ow, oh int) (w, h int) {
 	return 0x280, 0x2ba
 }
 func main() {
-	imgMode = flag.Bool("i",false,"Show actor image instead of circle")
+	autonomous = flag.Bool("a", false, "Run autonomously only and ignore user input")
+	imgMode = flag.Bool("i", false, "Show actor image instead of circle")
 	flag.Parse()
 	if *imgMode {
 		var err error
-		actor, _, err = ebitenutil.NewImageFromFileSystem(fs,"data/actor.png")
+		actor, _, err = ebitenutil.NewImageFromFileSystem(fs, "data/actor.png")
 		if err != nil {
 			log.Fatalln("Failed to load actor")
 		}
