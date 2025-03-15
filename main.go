@@ -18,9 +18,12 @@ import (
 )
 
 type Game struct {
-	Pos       [500]cp.Vector
-	Inputless uint64
-	LastAuto  uint64
+	Pos        [500]cp.Vector
+	Inputless  uint64
+	LastAuto   uint64
+	UserGen    line
+	Drawing    bool
+	HasWrapped bool
 }
 
 type line struct {
@@ -34,6 +37,7 @@ type line struct {
 var (
 	space      *cp.Space
 	ballArray  [500]*cp.Body
+	shapeArray []*cp.Shape
 	mass       float64
 	moment     float64
 	counter    uint64 // Should be used when drawing
@@ -66,7 +70,7 @@ func init() {
 	if err != nil {
 		log.Fatalln("Failed to load actor")
 	}
-	_, iconImage, err := ebitenutil.NewImageFromFileSystem(fs,"data/icon.png")
+	_, iconImage, err := ebitenutil.NewImageFromFileSystem(fs, "data/icon.png")
 	if err != nil {
 		log.Fatalln("Failed to load logo")
 	}
@@ -116,13 +120,37 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyI) {
 		imgMode = !imgMode
 	}
-	if (inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) || inpututil.IsKeyJustPressed(ebiten.KeySpace) || touch) && !*autonomous {
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton2) {
+		switch g.Drawing {
+		case false:
+			mouseX, mouseY := ebiten.CursorPosition()
+			g.UserGen.X0, g.UserGen.Y0 = float32(mouseX), float32(mouseY)
+			g.Drawing = true
+		case true:
+			mouseX, mouseY := ebiten.CursorPosition()
+			g.UserGen.X1, g.UserGen.Y1 = float32(mouseX), float32(mouseY)
+			g.UserGen.Width = 4
+			lines = append(lines, g.UserGen)
+			usergen := cp.NewSegment(space.StaticBody, cp.Vector{X: float64(g.UserGen.X0), Y: float64(g.UserGen.Y0)}, cp.Vector{X: float64(g.UserGen.X1), Y: float64(g.UserGen.Y1)}, 2)
+			usergen.SetFriction(1)
+			usergen.SetElasticity(0.25)
+			space.AddShape(usergen)
+			g.Drawing = false
+		}
+	}
+	if (inpututil.IsKeyJustPressed(ebiten.KeySpace) || touch || inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0)) && !*autonomous {
 		if writer > 499 {
 			writer = 0
+			g.HasWrapped = true
+		}
+		if g.HasWrapped {
+			space.RemoveBody(ballArray[writer])
+			space.RemoveShape(shapeArray[len(shapeArray)-499])
 		}
 		ballArray[writer] = space.AddBody(cp.NewBody(mass, moment))
 		ballArray[writer].SetPosition(cp.Vector{X: 280 + float64(rand.Intn(80)), Y: -5})
 		var circle = space.AddShape(cp.NewCircle(ballArray[writer], radius, cp.Vector{X: 0, Y: 0}))
+		shapeArray = append(shapeArray, circle)
 		circle.SetElasticity(1)
 		circle.SetCollisionType(cp.CollisionHandlerDefault.TypeB)
 		if counter < 499 {
@@ -133,10 +161,16 @@ func (g *Game) Update() error {
 	} else if auto && g.LastAuto == 15 {
 		if writer > 499 {
 			writer = 0
+			g.HasWrapped = true
+		}
+		if g.HasWrapped {
+			space.RemoveBody(ballArray[writer])
+			space.RemoveShape(shapeArray[len(shapeArray)-499])
 		}
 		ballArray[writer] = space.AddBody(cp.NewBody(mass, moment))
 		ballArray[writer].SetPosition(cp.Vector{X: 280 + float64(rand.Intn(80)), Y: -5})
 		var circle = space.AddShape(cp.NewCircle(ballArray[writer], radius, cp.Vector{X: 0, Y: 0}))
+		shapeArray = append(shapeArray, circle)
 		circle.SetElasticity(1)
 		circle.SetCollisionType(cp.CollisionHandlerDefault.TypeB)
 		if counter < 499 {
@@ -177,7 +211,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	if *debugging {
 		msg := fmt.Sprintf("TPS: %0.2f\nFPS: %0.2f\n", ebiten.ActualTPS(), ebiten.ActualFPS())
-		ebitenutil.DebugPrint(screen,msg)
+		ebitenutil.DebugPrint(screen, msg)
+	}
+	if g.Drawing {
+		vector.DrawFilledCircle(screen, g.UserGen.X0, g.UserGen.Y0, 5, color.RGBA{0xff, 0xc0, 0xcb, 0xff}, true)
 	}
 }
 
