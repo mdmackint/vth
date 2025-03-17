@@ -1,0 +1,2 @@
+#!/bin/bash
+GOOS=js GOARCH=wasm go build -ldflags "-s -w" -gcflags "-N -l" -o vth.wasm
