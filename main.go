@@ -34,10 +34,16 @@ type line struct {
 	Width float32
 }
 
+type timeout struct {
+	Image *ebiten.Image
+	TicksLeft uint
+}
+
 var (
 	space      *cp.Space
 	ballArray  [500]*cp.Body
 	shapeArray []*cp.Shape
+	gravImages [5]*ebiten.Image
 	mass       float64
 	moment     float64
 	counter    uint64 // Should be used when drawing
@@ -50,6 +56,7 @@ var (
 	autonomous *bool
 	debugging  *bool
 	icon       []image.Image
+	gravDisplay timeout
 )
 
 //go:embed data
@@ -64,8 +71,19 @@ func obstGen(x0, y0, x1, y1 float64, visible bool) {
 	obst = append(obst, cp.NewSegment(space.StaticBody, cp.Vector{X: x0, Y: y0}, cp.Vector{X: x1, Y: y1}, 2))
 }
 
+func loadEbitenImage(path string) *ebiten.Image {
+	x, _, err := ebitenutil.NewImageFromFileSystem(fs,path)
+	if err == nil {
+		return x
+	} else {
+		log.Fatalln("Failed to load image with path " + path + "; error:\n",err)
+		return nil
+	}
+}
+
 func init() {
 	var err error
+	gravDisplay.TicksLeft = 0
 	actor, _, err = ebitenutil.NewImageFromFileSystem(fs, "data/actor.png")
 	if err != nil {
 		log.Fatalln("Failed to load actor")
@@ -74,6 +92,7 @@ func init() {
 	if err != nil {
 		log.Fatalln("Failed to load logo")
 	}
+	gravImages[0], gravImages[1], gravImages[2], gravImages[3], gravImages[4] = loadEbitenImage("data/xgravadd.png"), loadEbitenImage("data/xgravsub.png"), loadEbitenImage("data/ygravadd.png"), loadEbitenImage("data/ygravsub.png"), loadEbitenImage("data/gravreset.png")
 	icon = append(icon, iconImage)
 	space = cp.NewSpace()
 	space.SetGravity(cp.Vector{X: 0.0, Y: 300.0})
@@ -111,6 +130,9 @@ func (g *Game) Update() error {
 	if *autonomous {
 		auto = true
 	}
+	if gravDisplay.TicksLeft != 0 {
+		gravDisplay.TicksLeft--
+	}
 	var releasedTouches = inpututil.AppendJustReleasedTouchIDs([]ebiten.TouchID{})
 	var touch bool = false
 	for range releasedTouches {
@@ -119,6 +141,26 @@ func (g *Game) Update() error {
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyI) {
 		imgMode = !imgMode
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyA) {
+		space.SetGravity(space.Gravity().Sub(cp.Vector{X: 50, Y: 0}))
+		gravDisplay.Image, gravDisplay.TicksLeft = gravImages[1], 20
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyW) {
+		space.SetGravity(space.Gravity().Sub(cp.Vector{X: 0, Y: 50}))
+		gravDisplay.Image, gravDisplay.TicksLeft = gravImages[3], 20
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyS) {
+		space.SetGravity(space.Gravity().Add(cp.Vector{X: 0, Y: 50}))
+		gravDisplay.Image, gravDisplay.TicksLeft = gravImages[2], 20
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyD) {
+		space.SetGravity(space.Gravity().Add(cp.Vector{X: 50, Y: 0}))
+		gravDisplay.Image, gravDisplay.TicksLeft = gravImages[0], 20
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyR) {
+		space.SetGravity(cp.Vector{X:0,Y:300})
+		gravDisplay.Image, gravDisplay.TicksLeft = gravImages[4], 20
 	}
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton2) {
 		switch g.Drawing {
@@ -216,6 +258,20 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if g.Drawing {
 		vector.DrawFilledCircle(screen, g.UserGen.X0, g.UserGen.Y0, 5, color.RGBA{0xff, 0xc0, 0xcb, 0xff}, true)
 	}
+	if gravDisplay.TicksLeft > 0 {
+		opts := &ebiten.DrawImageOptions{}
+		switch gravDisplay.TicksLeft {
+		case 20,1:
+			opts.ColorScale.SetA(0.1)
+		case 19,2:
+			opts.ColorScale.SetA(0.3)
+		case 18,3:
+			opts.ColorScale.SetA(0.5)
+		case 17,4:
+			opts.ColorScale.SetA(0.7)
+		}
+		screen.DrawImage(gravDisplay.Image,opts)
+	}
 }
 
 func (g *Game) Layout(ow, oh int) (w, h int) {
@@ -227,7 +283,7 @@ func main() {
 	var resizable = flag.Bool("r", false, "Makes the window resizable")
 	var imgFlag = flag.Bool("i", false, "Show actor image instead of circle")
 	flag.Parse()
-	imgMode = *imgFlag == true
+	imgMode = *imgFlag
 	ebiten.SetWindowTitle("vth")
 	ebiten.SetWindowSize(0x280, 0x2ba)
 	ebiten.SetWindowIcon(icon)
