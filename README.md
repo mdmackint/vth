@@ -4,7 +4,3 @@ Collision simulator written in [Go](https://go.dev), using [Ebitengine](https://
 Super simple, strike Space to make a ball appear and roll down the path to fall off the bottom of the window.
 
 I made this as a school project in about 1 day, so it's not very polished but it does work.
-
-<iframe src="wasm.html" width="640" height="698" allow="autoplay"></iframe>
-
-[back home](/)
