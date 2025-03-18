@@ -40,6 +40,8 @@ type timeout struct {
 }
 
 var (
+	gravDisabled       *bool
+	ugc        *bool
 	space      *cp.Space
 	ballArray  [500]*cp.Body
 	shapeArray []*cp.Shape
@@ -142,27 +144,27 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyI) {
 		imgMode = !imgMode
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyA) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyA) && !*gravDisabled {
 		space.SetGravity(space.Gravity().Sub(cp.Vector{X: 50, Y: 0}))
-		gravDisplay.Image, gravDisplay.TicksLeft = gravImages[1], 20
+		gravDisplay.Image, gravDisplay.TicksLeft = gravImages[1], 30
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyW) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyW) && !*gravDisabled {
 		space.SetGravity(space.Gravity().Sub(cp.Vector{X: 0, Y: 50}))
-		gravDisplay.Image, gravDisplay.TicksLeft = gravImages[3], 20
+		gravDisplay.Image, gravDisplay.TicksLeft = gravImages[3], 30
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyS) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyS) && !*gravDisabled{
 		space.SetGravity(space.Gravity().Add(cp.Vector{X: 0, Y: 50}))
-		gravDisplay.Image, gravDisplay.TicksLeft = gravImages[2], 20
+		gravDisplay.Image, gravDisplay.TicksLeft = gravImages[2], 30
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyD) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyD) && !*gravDisabled {
 		space.SetGravity(space.Gravity().Add(cp.Vector{X: 50, Y: 0}))
-		gravDisplay.Image, gravDisplay.TicksLeft = gravImages[0], 20
+		gravDisplay.Image, gravDisplay.TicksLeft = gravImages[0], 30
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyR) {
 		space.SetGravity(cp.Vector{X:0,Y:300})
-		gravDisplay.Image, gravDisplay.TicksLeft = gravImages[4], 20
+		gravDisplay.Image, gravDisplay.TicksLeft = gravImages[4], 30
 	}
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton2) {
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton2) && *ugc {
 		switch g.Drawing {
 		case false:
 			mouseX, mouseY := ebiten.CursorPosition()
@@ -261,13 +263,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if gravDisplay.TicksLeft > 0 {
 		opts := &ebiten.DrawImageOptions{}
 		switch gravDisplay.TicksLeft {
-		case 20,1:
+		case 30,1:
 			opts.ColorScale.SetA(0.1)
-		case 19,2:
+		case 29,2:
 			opts.ColorScale.SetA(0.3)
-		case 18,3:
+		case 28,3:
 			opts.ColorScale.SetA(0.5)
-		case 17,4:
+		case 27,4:
 			opts.ColorScale.SetA(0.7)
 		}
 		screen.DrawImage(gravDisplay.Image,opts)
@@ -278,6 +280,8 @@ func (g *Game) Layout(ow, oh int) (w, h int) {
 	return 0x280, 0x2ba
 }
 func main() {
+	gravDisabled = flag.Bool("g",false,"Disable gravity controls")
+	ugc = flag.Bool("u", false, "Allow user-generated obstacles (default false)")
 	autonomous = flag.Bool("a", false, "Run autonomously only and ignore user input")
 	debugging = flag.Bool("d", false, "Show TPS and FPS in window corner")
 	var resizable = flag.Bool("r", false, "Makes the window resizable")
