@@ -45,7 +45,7 @@ var (
 	space      *cp.Space
 	ballArray  [500]*cp.Body
 	shapeArray []*cp.Shape
-	gravImages [5]*ebiten.Image
+	gravImages [6]*ebiten.Image
 	mass       float64
 	moment     float64
 	counter    uint64 // Should be used when drawing
@@ -73,7 +73,7 @@ func obstGen(x0, y0, x1, y1 float64, visible bool) {
 	obst = append(obst, cp.NewSegment(space.StaticBody, cp.Vector{X: x0, Y: y0}, cp.Vector{X: x1, Y: y1}, 2))
 }
 
-func loadEbitenImage(path string) *ebiten.Image {
+func loadImage(path string) *ebiten.Image {
 	x, _, err := ebitenutil.NewImageFromFileSystem(fs,path)
 	if err == nil {
 		return x
@@ -82,19 +82,28 @@ func loadEbitenImage(path string) *ebiten.Image {
 		return nil
 	}
 }
+func loadMultiple(paths []string) []*ebiten.Image {
+	var images []*ebiten.Image
+	for n, i := range paths {
+		x, _, err := ebitenutil.NewImageFromFileSystem(fs,i)
+		if err != nil {
+			log.Fatalf("Loading images failed! Image no. %d, path %s\n",n,i)
+		}
+		images = append(images, x)
+	}
+	return images
+}
 
 func init() {
 	var err error
 	gravDisplay.TicksLeft = 0
-	actor, _, err = ebitenutil.NewImageFromFileSystem(fs, "data/actor.png")
-	if err != nil {
-		log.Fatalln("Failed to load actor")
-	}
+	actor = loadImage("data/actor.png")
 	_, iconImage, err := ebitenutil.NewImageFromFileSystem(fs, "data/icon.png")
 	if err != nil {
 		log.Fatalln("Failed to load logo")
 	}
-	gravImages[0], gravImages[1], gravImages[2], gravImages[3], gravImages[4] = loadEbitenImage("data/xgravadd.png"), loadEbitenImage("data/xgravsub.png"), loadEbitenImage("data/ygravadd.png"), loadEbitenImage("data/ygravsub.png"), loadEbitenImage("data/gravreset.png")
+	images := loadMultiple([]string{"data/xgravadd.png","data/xgravsub.png","data/ygravadd.png","data/ygravsub.png","data/gravreset.png","data/gravlimit.png"})
+	copy(gravImages[:],images[:])
 	icon = append(icon, iconImage)
 	space = cp.NewSpace()
 	space.SetGravity(cp.Vector{X: 0.0, Y: 300.0})
@@ -163,6 +172,18 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyR) {
 		space.SetGravity(cp.Vector{X:0,Y:300})
 		gravDisplay.Image, gravDisplay.TicksLeft = gravImages[4], 30
+	}
+	
+	// Check that gravity is not outside of reasonable bounds
+	// Physics can break a bit when gravity is too strong
+	grav := space.Gravity()
+	modified := false
+	if grav.X > 500 {space.SetGravity(cp.Vector{X: 500, Y: grav.Y});modified = true}
+	if grav.X < -500 {space.SetGravity(cp.Vector{X: -500, Y: grav.Y});modified = true}
+	if grav.Y > 500 {space.SetGravity(cp.Vector{X: grav.X, Y: 500});modified = true}
+	if grav.Y < -500 {space.SetGravity(cp.Vector{X: grav.X, Y: -500});modified = true}
+	if modified {
+		gravDisplay.Image = gravImages[5]
 	}
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton2) && *ugc {
 		switch g.Drawing {
@@ -238,8 +259,7 @@ func (g *Game) Update() error {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{0xff, 0xe0, 0xeb, 0xff})
-	var x int = 0
-	for x < int(counter) {
+	for x:=0;x<int(counter);x++ {
 		if imgMode {
 			opts := &ebiten.DrawImageOptions{}
 			opts.GeoM.Scale(16.0/350.0, 16.0/350.0)
@@ -248,7 +268,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		} else {
 			vector.DrawFilledCircle(screen, float32(g.Pos[x].X), float32(g.Pos[x].Y), float32(radius), color.RGBA{0xef, 0x60, 0x6b, 0xff}, true)
 		}
-		x++
 	}
 	for _, item := range lines {
 		vector.StrokeLine(screen, item.X0, item.Y0, item.X1, item.Y1, item.Width, color.RGBA{0xef, 0x60, 0x6b, 0xff}, true)
