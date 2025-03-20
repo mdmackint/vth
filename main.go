@@ -59,6 +59,7 @@ var (
 	lines        []line
 	actor        *ebiten.Image
 	imgMode      bool
+	wallsBuilt   bool
 	autonomous   *bool
 	debugging    *bool
 	icon         []image.Image
@@ -126,18 +127,19 @@ func init() {
 	// Create physics simulation space and set gravity
 	space = cp.NewSpace()
 	space.SetGravity(cp.Vector{X: 0.0, Y: 300.0})
+
 	// Add obstacles and set properties
-	obstGen(160, 100, 320, 60, 4.0, true)
-	obstGen(320, 60, 480, 100, 4.0, true)
-	obstGen(0, 140, 160, 180, 4.0, true)
-	obstGen(640, 140, 480, 180, 4.0, true)
-	obstGen(-2, 0, -2, 0x300, 10.0, false)
-	obstGen(0x282, 0, 0x282, 0x300, 10.0, false)
-	obstGen(0, -5, 0x280, -5, 4.0, false)
-	obstGen(0, 240, 500, 300, 4.0, true)
-	obstGen(640, 400, 140, 460, 4.0, true)
-	obstGen(0, 520, 300, 600, 4.0, true)
-	obstGen(640, 520, 340, 600, 4.0, true)
+	// Left and right-hand walls are added in Layout function
+	// This is because they need to have the same height as the window
+	obstGen(160, 100, 320, 60, 4.0, true) // Right-hand section of the topmost obstacle
+	obstGen(320, 60, 480, 100, 4.0, true) // Left-hand section of same
+	obstGen(0, 140, 160, 180, 4.0, true) // First slanted path - left to right
+	obstGen(640, 140, 480, 180, 4.0, true) // Second slanted path - right to left
+	obstGen(0, -5, 0x280, -5, 4.0, false) // Top game boundary - invisible
+	obstGen(0, 240, 500, 300, 4.0, true) // Slanted path which leads shapes to right
+	obstGen(640, 400, 140, 460, 4.0, true) // Slanted path which leads shapes to left
+	obstGen(0, 520, 300, 600, 4.0, true) // Left hand section of funnel at bottom
+	obstGen(640, 520, 340, 600, 4.0, true) // Right hand section of same
 	for _, x := range obst {
 		x.SetFriction(1)
 		x.SetElasticity(0.25)
@@ -369,23 +371,34 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 func (g *Game) Layout(ow, oh int) (w, h int) {
-	return 0x280, 0x2ba
+	if wallsBuilt {
+		return 0x280, oh
+	} else {
+		var walls [2]*cp.Shape
+		mHeight, _ := ebiten.Monitor().Size()
+		walls[0] = cp.NewSegment(space.StaticBody,cp.Vector{X: -2, Y: 0},cp.Vector{X: -2, Y: float64(mHeight)},2) // Left game boundary - invisible
+		walls[1] = cp.NewSegment(space.StaticBody, cp.Vector{X: 0x282, Y: 0}, cp.Vector{X: 0x282, Y: float64(mHeight)},2) // Right game boundary - invisible
+		for x := 0; x < 2; x++ {
+			walls[x].SetFriction(1)
+			walls[x].SetElasticity(0.25)
+			space.AddShape(walls[x])
+		}
+		wallsBuilt = true
+		return 0x280, oh
+	}
 }
 func main() {
 	gravDisabled = flag.Bool("g", false, "Disable gravity controls")
 	ugc = flag.Bool("u", false, "Allow user-generated obstacles (default false)")
 	autonomous = flag.Bool("a", false, "Run autonomously only and ignore user input")
 	debugging = flag.Bool("d", false, "Show TPS and FPS in window corner")
-	var resizable = flag.Bool("r", false, "Makes the window resizable")
 	var imgFlag = flag.Bool("i", false, "Show actor image instead of circle")
 	flag.Parse()
 	imgMode = *imgFlag
 	ebiten.SetWindowTitle("vth")
 	ebiten.SetWindowSize(0x280, 0x2ba)
 	ebiten.SetWindowIcon(icon)
-	if *resizable {
-		ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-	}
+	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	if err := ebiten.RunGame(&Game{}); err != nil {
 		log.Fatalln(err)
 	}
