@@ -21,14 +21,16 @@ jobs:
       with:
         go-version: '1.24'
 
+    - name: Install dependencies
+      run: sudo apt install -y gcc libc6-dev libgl1-mesa-dev libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev libxxf86vm-dev libasound2-dev pkg-config
+      
     - name: Test
       run: go test -v > testoutput
 
-    - name: Build for Windows amd64
-      run: GOOS=windows GOARCH=amd64 go build -v -o vth-windows-amd64.exe
-
-    - name: Build for Linux amd64
-      run: GOOS=linux GOARCH=amd64 go build -v -o vth-linux-amd64
+    - name: Build binaries for Windows and Linux
+      run: |
+        GOOS=windows GOARCH=amd64 go build -v -o vth-windows-amd64.exe
+        GOOS=linux GOARCH=amd64 go build -v -o vth-linux-amd64
 
     - name: Upload test results
       uses: actions/upload-artifact@v4
@@ -41,6 +43,7 @@ jobs:
       with:
         name: vth-windows-amd64.exe
         path: vth-windows-amd64.exe
+        
     - name: Upload compiled Linux binary
       uses: actions/upload-artifact@v4
       with:
