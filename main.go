@@ -62,7 +62,7 @@ var (
 	autonomous   *bool
 	debugging    *bool
 	icon         []image.Image
-	speedImg     [2]*ebiten.Image
+	speedImg     [3]*ebiten.Image
 )
 
 //go:embed data
@@ -117,7 +117,7 @@ func init() {
 	copy(pauseImg[:], pauseDialogues[:])
 
 	// Load speed control messages, copy them into array
-	speedImgSlice := loadMultiple([]string{"data/speedup.png", "data/slowdown.png"})
+	speedImgSlice := loadMultiple([]string{"data/speedup.png", "data/slowdown.png","data/normalspeed.png"})
 	copy(speedImg[:], speedImgSlice[:])
 
 	// Append icon image to slice
@@ -317,6 +317,10 @@ func (g *Game) Update() error {
 			space.Step(1.0 / 120.0)
 		} else {
 			space.Step(1.0 / 60.0)
+		}
+		if inpututil.IsKeyJustReleased(ebiten.KeyArrowUp) || inpututil.IsKeyJustReleased(ebiten.KeyArrowDown) {
+			g.TempImage.Image = speedImg[2]
+			g.TempImage.TicksLeft = 30
 		}
 	}
 	return nil
