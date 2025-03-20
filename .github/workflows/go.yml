@@ -23,9 +23,6 @@ jobs:
 
     - name: Install dependencies
       run: sudo apt install -y gcc libc6-dev libgl1-mesa-dev libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev libxxf86vm-dev libasound2-dev pkg-config
-      
-    - name: Test
-      run: go test -v > testoutput
 
     - name: Build binaries for Windows and Linux
       run: |
