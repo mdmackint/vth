@@ -10,6 +10,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -27,6 +28,8 @@ type Game struct {
 	HasWrapped bool
 	Paused     bool
 	TempImage  imageTimeout
+	ClickInt   []time.Time
+	Cheating   bool
 }
 
 type line struct {
@@ -252,6 +255,28 @@ func (g *Game) Update() error {
 		}
 	}
 	if (inpututil.IsKeyJustPressed(ebiten.KeySpace) || touch || inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0)) && !*autonomous && !g.Paused {
+		g.ClickInt = append(g.ClickInt, time.Now())
+		if len(g.ClickInt) > 300 {
+			streak := 0
+			var prevInt int64
+			for x := range g.ClickInt {
+				if x == 0 {
+					continue
+				}
+				if x == 1 {
+					prevInt = g.ClickInt[x].Sub(g.ClickInt[x-1]).Milliseconds()
+				}
+				if g.ClickInt[x].Sub(g.ClickInt[x-1]).Milliseconds() == prevInt {
+					streak++
+				}
+			}
+			if streak > 295 {
+				g.Cheating = true
+			} else {
+				g.Cheating = false
+			}
+			g.ClickInt = []time.Time{}
+		}
 		if writer > 499 {
 			writer = 0
 			g.HasWrapped = true
@@ -328,6 +353,11 @@ func (g *Game) Update() error {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{0xff, 0xe0, 0xeb, 0xff})
+	if g.Cheating {
+		screen.Fill(color.Black)
+		ebitenutil.DebugPrint(screen,"Please refrain from using an auto-clicker.")
+		radius = 24
+	}
 	for x := 0; x < int(counter); x++ {
 		if imgMode {
 			opts := &ebiten.DrawImageOptions{}
