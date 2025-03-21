@@ -256,7 +256,7 @@ func (g *Game) Update() error {
 	}
 	if (inpututil.IsKeyJustPressed(ebiten.KeySpace) || touch || inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0)) && !*autonomous && !g.Paused {
 		g.ClickInt = append(g.ClickInt, time.Now())
-		if len(g.ClickInt) > 300 {
+		if len(g.ClickInt) > 100 {
 			streak := 0
 			var prevInt int64
 			for x := range g.ClickInt {
@@ -269,11 +269,15 @@ func (g *Game) Update() error {
 				if g.ClickInt[x].Sub(g.ClickInt[x-1]).Milliseconds() == prevInt {
 					streak++
 				}
+				prevInt = g.ClickInt[x].Sub(g.ClickInt[x-1]).Milliseconds()
 			}
-			if streak > 295 {
+			if streak > 95 {
 				g.Cheating = true
 			} else {
 				g.Cheating = false
+			}
+			if *debugging {
+				log.Printf("Just checked for autoclicker! Results: streak %d",streak)
 			}
 			g.ClickInt = []time.Time{}
 		}
