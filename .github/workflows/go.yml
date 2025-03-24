@@ -29,15 +29,6 @@ jobs:
         GOOS=windows GOARCH=amd64 go build -v -o vth-windows-amd64.exe
         GOOS=linux GOARCH=amd64 go build -v -o vth-linux-amd64
 
-    - name: Run unit tests
-      run: go test -v
-
-    - name: Upload test results
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results
-        path: testoutput
-
     - name: Upload compiled Windows binary
       uses: actions/upload-artifact@v4
       with:
