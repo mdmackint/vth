@@ -10,6 +10,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -63,6 +64,7 @@ var (
 	debugging    *bool
 	icon         []image.Image
 	speedImg     [3]*ebiten.Image
+	instaclose   *bool
 )
 
 //go:embed data
@@ -165,6 +167,9 @@ func init() {
 // Runs every tick.
 // Welcome to the land of the if statements.
 func (g *Game) Update() error {
+	if *instaclose {
+		os.Exit(0)
+	}
 	// Pause the game if user strikes key K
 	if inpututil.IsKeyJustPressed(ebiten.KeyK) {
 		switch g.Paused {
@@ -378,6 +383,7 @@ func (g *Game) Layout(ow, oh int) (w, h int) {
 	return 0x280, 0x2ba
 }
 func main() {
+	instaclose = flag.Bool("instaclose",false,"Instantly quit on first frame - debugging only!")
 	gravDisabled = flag.Bool("g", false, "Disable gravity controls")
 	ugc = flag.Bool("u", false, "Allow user-generated obstacles (default false)")
 	autonomous = flag.Bool("a", false, "Run autonomously only and ignore user input")
