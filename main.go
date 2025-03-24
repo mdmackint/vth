@@ -98,6 +98,12 @@ func loadMultiple(paths []string) []*ebiten.Image {
 	return images
 }
 
+func (g *Game) Tick(div float64, f int) {
+	for range f {
+		space.Step(div)
+	}
+}
+
 func init() {
 	var err error
 	// Load actor (mario coin)
@@ -308,15 +314,15 @@ func (g *Game) Update() error {
 				g.TempImage.TicksLeft = 30
 			}
 
-			space.Step(2.0 / 60.0)
+			g.Tick(1.0 / 480.0, 16)
 		} else if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
 			if g.TempImage.Image != speedImg[1] {
 				g.TempImage.Image = speedImg[1]
 				g.TempImage.TicksLeft = 30
 			}
-			space.Step(1.0 / 120.0)
+			g.Tick(1.0 / 480.0, 4)
 		} else {
-			space.Step(1.0 / 60.0)
+			g.Tick(1.0 / 480.0, 8)
 		}
 		if inpututil.IsKeyJustReleased(ebiten.KeyArrowUp) || inpututil.IsKeyJustReleased(ebiten.KeyArrowDown) {
 			g.TempImage.Image = speedImg[2]
