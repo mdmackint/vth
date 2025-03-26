@@ -470,8 +470,8 @@ func main() {
 	ebiten.SetWindowIcon(icon)
 	if *resizable {
 		ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-		ebiten.SetWindowDecorated(!undecorated)
 	}
+	ebiten.SetWindowDecorated(!undecorated)
 	if err := ebiten.RunGame(&Game{Radii: [500]float64{8}, Elasticity: 1.0, LastDebug: 60, Visible: [500]bool{true}}); err != nil {
 		log.Fatalln(err)
 	}
