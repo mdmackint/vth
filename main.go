@@ -231,13 +231,13 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyE) {
 		switch g.Elasticity {
 		case 1.0:
-			g.Elasticity = 1.25
+			g.Elasticity = 1.15
 			g.TempImage.Image, g.TempImage.TicksLeft = miscImg[0], 30
 			for index, item := range shapeArray {
 				if index == int(counter) {
 					break
 				}
-				item.SetElasticity(1.25)
+				item.SetElasticity(1.15)
 				
 			}
 		default:
