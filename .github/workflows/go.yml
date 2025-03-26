@@ -40,3 +40,25 @@ jobs:
       with:
         name: vth-linux-amd64
         path: vth-linux-amd64
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Fetch Windows binary
+        uses: actions/download-artifact@v4
+        with:
+          name: vth-windows-amd64.exe
+          path: vth-windows-amd64.exe
+      - name: Fetch Linux binary
+        uses: actions/download-artifact@v4
+        with:
+          name: vth-linux-amd64
+          path: vth-linux-amd64
+      - name: Release if tagged
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref,'refs/tags/')
+        with:
+          files: |
+            vth-linux-amd64
+            vth-windows-amd64.exe
