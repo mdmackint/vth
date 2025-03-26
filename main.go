@@ -389,21 +389,6 @@ func (g *Game) Update() error {
 			g.TempImage.TicksLeft = 30
 		}
 	}
-	// Now deactivate out-of-bounds shapes
-	for index, item := range ballArray {
-		if index == int(counter) {
-			break
-		}
-		pos := item.Position()
-		if pos.Y > float64(g.Height + 10) || pos.X > 0x28a || pos.X < -10 {
-			space.RemoveBody(item)
-			g.Visible[index] = false
-			if *debugging && g.LastDebug > 59 {
-				log.Printf("Deactivated body at X%d Y%d because it was out of bounds.\n", int(pos.X), int(pos.Y))
-				g.LastDebug = 0
-			}
-		}
-	}
 	return nil
 }
 
