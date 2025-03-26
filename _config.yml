@@ -1,0 +1,7 @@
+show_downloads: true
+title: vth
+description: Physics simulator written in Go
+theme: minimal
+plugins:
+  - jekyll-remote-theme
+logo: /vth/data/icon.png
