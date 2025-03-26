@@ -41,6 +41,7 @@ jobs:
         name: vth-linux-amd64
         path: vth-linux-amd64
   release:
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
