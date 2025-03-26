@@ -5,5 +5,7 @@ body {
 }
 iframe {
     max-width: 100vw;
+    border: none;
+    border-radius: 3px;
 }
 @import "{{ site.theme }}";
