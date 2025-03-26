@@ -20,7 +20,9 @@ import (
 )
 
 type Game struct {
+	Visible    [500]bool
 	Pos        [500]cp.Vector
+	Radii      [500]float64
 	Inputless  uint64
 	LastAuto   uint64
 	UserGen    line
@@ -28,6 +30,11 @@ type Game struct {
 	HasWrapped bool
 	Paused     bool
 	TempImage  imageTimeout
+	Elasticity float64
+	RandRad    bool
+	Height     int
+	Width      int
+	LastDebug  uint
 }
 
 type line struct {
@@ -65,6 +72,7 @@ var (
 	icon         []image.Image
 	speedImg     [3]*ebiten.Image
 	instaclose   *bool
+	miscImg      [4]*ebiten.Image
 )
 
 //go:embed data
@@ -128,6 +136,9 @@ func init() {
 	speedImgSlice := loadMultiple([]string{"data/speedup.png", "data/slowdown.png","data/normalspeed.png"})
 	copy(speedImg[:], speedImgSlice[:])
 
+	miscImgSlice := loadMultiple([]string{"data/elasticadd.png","data/elasticsub.png","data/fixedrad.png","data/randrad.png"})
+	copy(miscImg[:],miscImgSlice[:])
+
 	// Append icon image to slice
 	icon = append(icon, iconImage)
 
@@ -167,6 +178,11 @@ func init() {
 // Runs every tick.
 // Welcome to the land of the if statements.
 func (g *Game) Update() error {
+	g.LastDebug++
+	radius = float64(rand.Intn(4)+6)
+	if !g.RandRad {
+		radius = 8.0
+	}
 	if *instaclose {
 		os.Exit(0)
 	}
@@ -199,6 +215,41 @@ func (g *Game) Update() error {
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyI) {
 		imgMode = !imgMode
+		if imgMode && g.RandRad {
+			imgMode = false
+		}
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+		g.RandRad = !g.RandRad
+		switch g.RandRad {
+		case true:
+			g.TempImage.Image, g.TempImage.TicksLeft = miscImg[3], 30
+			imgMode = false
+		case false: g.TempImage.Image, g.TempImage.TicksLeft = miscImg[2], 30
+		}
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyE) {
+		switch g.Elasticity {
+		case 1.0:
+			g.Elasticity = 1.25
+			g.TempImage.Image, g.TempImage.TicksLeft = miscImg[0], 30
+			for index, item := range shapeArray {
+				if index == int(counter) {
+					break
+				}
+				item.SetElasticity(1.25)
+				
+			}
+		default:
+			g.Elasticity = 1.0
+			g.TempImage.Image, g.TempImage.TicksLeft = miscImg[1], 30
+			for index, item := range shapeArray {
+				if index == int(counter) {
+					break
+				}
+				item.SetElasticity(1.0)
+			}
+		}
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyA) && !*gravDisabled {
 		space.SetGravity(space.Gravity().Sub(cp.Vector{X: 50, Y: 0}))
@@ -274,9 +325,11 @@ func (g *Game) Update() error {
 		ballArray[writer] = space.AddBody(cp.NewBody(mass, moment))
 		ballArray[writer].SetPosition(cp.Vector{X: 280 + float64(rand.Intn(80)), Y: -5})
 		var circle = space.AddShape(cp.NewCircle(ballArray[writer], radius, cp.Vector{X: 0, Y: 0}))
-		shapeArray = append(shapeArray, circle)
-		circle.SetElasticity(1)
+		circle.SetElasticity(g.Elasticity)
 		circle.SetCollisionType(cp.CollisionHandlerDefault.TypeB)
+		shapeArray = append(shapeArray, circle)
+		g.Visible[writer] = true
+		g.Radii[writer] = radius
 		if counter < 499 {
 			counter++
 		}
@@ -294,9 +347,11 @@ func (g *Game) Update() error {
 		ballArray[writer] = space.AddBody(cp.NewBody(mass, moment))
 		ballArray[writer].SetPosition(cp.Vector{X: 280 + float64(rand.Intn(80)), Y: -5})
 		var circle = space.AddShape(cp.NewCircle(ballArray[writer], radius, cp.Vector{X: 0, Y: 0}))
-		shapeArray = append(shapeArray, circle)
-		circle.SetElasticity(1)
+		circle.SetElasticity(g.Elasticity)
 		circle.SetCollisionType(cp.CollisionHandlerDefault.TypeB)
+		shapeArray = append(shapeArray, circle)
+		g.Visible[writer] = true
+		g.Radii[writer] = radius
 		if counter < 499 {
 			counter++
 		}
@@ -334,23 +389,44 @@ func (g *Game) Update() error {
 			g.TempImage.TicksLeft = 30
 		}
 	}
+	// Now deactivate out-of-bounds shapes
+	for index, item := range ballArray {
+		if index == int(counter) {
+			break
+		}
+		pos := item.Position()
+		if pos.Y > float64(g.Height + 10) || pos.X > 0x28a || pos.X < -10 {
+			space.RemoveBody(item)
+			g.Visible[index] = false
+			if *debugging && g.LastDebug > 59 {
+				log.Printf("Deactivated body at X%d Y%d because it was out of bounds.\n", int(pos.X), int(pos.Y))
+				g.LastDebug = 0
+			}
+		}
+	}
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{0xff, 0xe0, 0xeb, 0xff})
-	for x := 0; x < int(counter); x++ {
+	for x := range counter {
+		if !g.Visible[x] {
+			continue
+		}
 		if imgMode {
 			opts := &ebiten.DrawImageOptions{}
 			opts.GeoM.Scale(16.0/350.0, 16.0/350.0)
 			opts.GeoM.Translate(g.Pos[x].X-8, g.Pos[x].Y-8)
 			screen.DrawImage(actor, opts)
 		} else {
-			vector.DrawFilledCircle(screen, float32(g.Pos[x].X), float32(g.Pos[x].Y), float32(radius), color.RGBA{0xef, 0x60, 0x6b, 0xff}, true)
+			vector.DrawFilledCircle(screen, float32(g.Pos[x].X), float32(g.Pos[x].Y), float32(g.Radii[x]), color.RGBA{0xef, 0x60, 0x6b, 0xff}, true)
 		}
 	}
 	for _, item := range lines {
-		vector.StrokeLine(screen, item.X0, item.Y0, item.X1, item.Y1, item.Width, color.RGBA{0xef, 0x60, 0x6b, 0xff}, true)
+		vector.StrokeLine(
+			screen, item.X0, item.Y0, item.X1, item.Y1,
+			item.Width, color.RGBA{0xef, 0x60, 0x6b, 0xff}, true,
+		)
 	}
 	if *debugging {
 		msg := fmt.Sprintf("TPS: %0.2f\nFPS: %0.2f\n", ebiten.ActualTPS(), ebiten.ActualFPS())
@@ -380,15 +456,27 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 func (g *Game) Layout(ow, oh int) (w, h int) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		ebiten.SetWindowSize(0x280,oh)
+	}
+	g.Width = 0x280
+	if oh > 0x2ba {
+		g.Height = oh
+		return 0x280, oh
+	}
+	g.Height = 0x2ba
 	return 0x280, 0x2ba
 }
 func main() {
 	instaclose = flag.Bool("instaclose",false,"Instantly quit on first frame - debugging only!")
 	gravDisabled = flag.Bool("g", false, "Disable gravity controls")
+	var undecorated = *flag.Bool("t", false, "Hide titlebar of window")
 	ugc = flag.Bool("u", false, "Allow user-generated obstacles (default false)")
 	autonomous = flag.Bool("a", false, "Run autonomously only and ignore user input")
 	debugging = flag.Bool("d", false, "Show TPS and FPS in window corner")
-	var resizable = flag.Bool("r", false, "Makes the window resizable")
+	var resizable = flag.Bool("r", false, "Disables resizing of the window")
+	resizableBool := !*resizable
+	resizable = &resizableBool
 	var imgFlag = flag.Bool("i", false, "Show actor image instead of circle")
 	flag.Parse()
 	imgMode = *imgFlag
@@ -397,8 +485,9 @@ func main() {
 	ebiten.SetWindowIcon(icon)
 	if *resizable {
 		ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+		ebiten.SetWindowDecorated(!undecorated)
 	}
-	if err := ebiten.RunGame(&Game{}); err != nil {
+	if err := ebiten.RunGame(&Game{Radii: [500]float64{8}, Elasticity: 1.0, LastDebug: 60, Visible: [500]bool{true}}); err != nil {
 		log.Fatalln(err)
 	}
 }
