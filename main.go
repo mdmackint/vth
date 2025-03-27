@@ -35,6 +35,7 @@ type Game struct {
 	Height     int
 	Width      int
 	LastDebug  uint
+	Resizable  bool
 }
 
 type line struct {
@@ -133,11 +134,11 @@ func init() {
 	copy(pauseImg[:], pauseDialogues[:])
 
 	// Load speed control messages, copy them into array
-	speedImgSlice := loadMultiple([]string{"data/speedup.png", "data/slowdown.png","data/normalspeed.png"})
+	speedImgSlice := loadMultiple([]string{"data/speedup.png", "data/slowdown.png", "data/normalspeed.png"})
 	copy(speedImg[:], speedImgSlice[:])
 
-	miscImgSlice := loadMultiple([]string{"data/elasticadd.png","data/elasticsub.png","data/fixedrad.png","data/randrad.png"})
-	copy(miscImg[:],miscImgSlice[:])
+	miscImgSlice := loadMultiple([]string{"data/elasticadd.png", "data/elasticsub.png", "data/fixedrad.png", "data/randrad.png"})
+	copy(miscImg[:], miscImgSlice[:])
 
 	// Append icon image to slice
 	icon = append(icon, iconImage)
@@ -179,7 +180,7 @@ func init() {
 // Welcome to the land of the if statements.
 func (g *Game) Update() error {
 	g.LastDebug++
-	radius = float64(rand.Intn(4)+6)
+	radius = float64(rand.Intn(4) + 6)
 	if !g.RandRad {
 		radius = 8.0
 	}
@@ -225,7 +226,8 @@ func (g *Game) Update() error {
 		case true:
 			g.TempImage.Image, g.TempImage.TicksLeft = miscImg[3], 30
 			imgMode = false
-		case false: g.TempImage.Image, g.TempImage.TicksLeft = miscImg[2], 30
+		case false:
+			g.TempImage.Image, g.TempImage.TicksLeft = miscImg[2], 30
 		}
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyE) {
@@ -238,7 +240,7 @@ func (g *Game) Update() error {
 					break
 				}
 				item.SetElasticity(1.15)
-				
+
 			}
 		default:
 			g.Elasticity = 1.0
@@ -374,15 +376,15 @@ func (g *Game) Update() error {
 				g.TempImage.TicksLeft = 30
 			}
 
-			g.Tick(1.0 / 480.0, 16)
+			g.Tick(1.0/480.0, 16)
 		} else if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
 			if g.TempImage.Image != speedImg[1] {
 				g.TempImage.Image = speedImg[1]
 				g.TempImage.TicksLeft = 30
 			}
-			g.Tick(1.0 / 480.0, 4)
+			g.Tick(1.0/480.0, 4)
 		} else {
-			g.Tick(1.0 / 480.0, 8)
+			g.Tick(1.0/480.0, 8)
 		}
 		if inpututil.IsKeyJustReleased(ebiten.KeyArrowUp) || inpututil.IsKeyJustReleased(ebiten.KeyArrowDown) {
 			g.TempImage.Image = speedImg[2]
@@ -442,10 +444,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 func (g *Game) Layout(ow, oh int) (w, h int) {
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-		ebiten.SetWindowSize(0x280,oh)
+		ebiten.SetWindowSize(0x280, oh)
 	}
 	g.Width = 0x280
-	if oh > 0x2ba {
+	if oh > 0x2ba && g.Resizable {
 		g.Height = oh
 		return 0x280, oh
 	}
@@ -453,7 +455,7 @@ func (g *Game) Layout(ow, oh int) (w, h int) {
 	return 0x280, 0x2ba
 }
 func main() {
-	instaclose = flag.Bool("instaclose",false,"Instantly quit on first frame - debugging only!")
+	instaclose = flag.Bool("instaclose", false, "Instantly quit on first frame - debugging only!")
 	gravDisabled = flag.Bool("g", false, "Disable gravity controls")
 	var undecorated = *flag.Bool("t", false, "Hide titlebar of window")
 	ugc = flag.Bool("u", false, "Allow user-generated obstacles (default false)")
@@ -472,7 +474,7 @@ func main() {
 		ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	}
 	ebiten.SetWindowDecorated(!undecorated)
-	if err := ebiten.RunGame(&Game{Radii: [500]float64{8}, Elasticity: 1.0, LastDebug: 60, Visible: [500]bool{true}}); err != nil {
+	if err := ebiten.RunGame(&Game{Radii: [500]float64{8}, Elasticity: 1.0, LastDebug: 60, Visible: [500]bool{true}, Resizable: *resizable}); err != nil {
 		log.Fatalln(err)
 	}
 }
