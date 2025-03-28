@@ -11,6 +11,8 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"slices"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -30,12 +32,12 @@ type Game struct {
 	HasWrapped bool
 	Paused     bool
 	TempImage  imageTimeout
-	Elasticity float64
 	RandRad    bool
 	Height     int
 	Width      int
 	LastDebug  uint
 	Resizable  bool
+	Tick       uint64
 }
 
 type line struct {
@@ -51,7 +53,13 @@ type imageTimeout struct {
 	TicksLeft uint
 }
 
+type throttle struct {
+	Enabled bool
+	Level   uint8
+}
+
 var (
+	elasticity float64
 	gravDisabled *bool
 	ugc          *bool
 	space        *cp.Space
@@ -74,10 +82,58 @@ var (
 	speedImg     [3]*ebiten.Image
 	instaclose   *bool
 	miscImg      [4]*ebiten.Image
+	autoDelay    int
+	throttling   throttle
 )
 
 //go:embed data
 var fs embed.FS
+
+func (g *Game) IsSpamming() bool {
+	var spamming bool
+	if !throttling.Enabled {
+		spamming = (ebiten.IsKeyPressed(ebiten.KeyShift) && ebiten.IsKeyPressed(ebiten.KeySpace) && (g.Tick%4 == 0))
+	}
+	if throttling.Enabled && throttling.Level == 1 {
+		spamming = (ebiten.IsKeyPressed(ebiten.KeyShift) && ebiten.IsKeyPressed(ebiten.KeySpace) && (g.Tick%8 == 0))
+	}
+	if throttling.Enabled && throttling.Level > 1 {
+		spamming = false
+	}
+	return spamming
+}
+
+func DetectLag(TPSTrigger float64, FPSTrigger float64) {
+	ticker := time.Tick(time.Millisecond * 100)
+	for range ticker {
+		if ebiten.ActualTPS() < (TPSTrigger-40) || ebiten.ActualFPS() < (FPSTrigger-40) {
+			// severe throttling
+			throttling.Enabled = true
+			throttling.Level = 3
+			autoDelay = 60
+		} else if ebiten.ActualTPS() < (TPSTrigger-20) || ebiten.ActualFPS() < (FPSTrigger-20) {
+			// pretty extreme lag reduction strats
+			throttling.Enabled = true
+			throttling.Level = 2
+			elasticity = 1.0
+			for index, item := range shapeArray {
+				if index == int(counter) {
+					break
+				}
+				item.SetElasticity(1.0)
+			}
+			autoDelay = 45
+		} else if ebiten.ActualTPS() < TPSTrigger || ebiten.ActualFPS() < FPSTrigger {
+			// lag reduction strats
+			autoDelay = 30
+			throttling.Enabled = true
+			throttling.Level = 1
+		} else {
+			autoDelay = 15
+			throttling.Enabled = false
+		}
+	}
+}
 
 func obstGen(x0, y0, x1, y1, r float64, visible bool) {
 	if visible {
@@ -109,13 +165,26 @@ func loadMultiple(paths []string) []*ebiten.Image {
 	return images
 }
 
-func (g *Game) Tick(div float64, f int) {
+func (g *Game) Step(div float64, f int) {
+	if throttling.Enabled {
+		for range f / int(throttling.Level) {
+			space.Step(div * float64(throttling.Level))
+		}
+		return
+	}
+	if elasticity == 1.15 {
+		for range f * 2 {
+			space.Step(div / 2)
+		}
+		return
+	}
 	for range f {
 		space.Step(div)
 	}
 }
 
 func init() {
+	autoDelay = 15
 	var err error
 	// Load actor (mario coin)
 	actor = loadImage("data/actor.png")
@@ -179,7 +248,9 @@ func init() {
 // Runs every tick.
 // Welcome to the land of the if statements.
 func (g *Game) Update() error {
+	g.Tick++
 	g.LastDebug++
+	newStrikes := inpututil.AppendJustPressedKeys([]ebiten.Key{})
 	radius = float64(rand.Intn(4) + 6)
 	if !g.RandRad {
 		radius = 8.0
@@ -188,7 +259,7 @@ func (g *Game) Update() error {
 		os.Exit(0)
 	}
 	// Pause the game if user strikes key K
-	if inpututil.IsKeyJustPressed(ebiten.KeyK) {
+	if slices.Contains(newStrikes, ebiten.KeyK) {
 		switch g.Paused {
 		case true:
 			g.Paused = false
@@ -214,13 +285,13 @@ func (g *Game) Update() error {
 		touch = true
 		break
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyI) {
+	if slices.Contains(newStrikes, ebiten.KeyI) {
 		imgMode = !imgMode
 		if imgMode && g.RandRad {
 			imgMode = false
 		}
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+	if slices.Contains(newStrikes, ebiten.KeyEnter) {
 		g.RandRad = !g.RandRad
 		switch g.RandRad {
 		case true:
@@ -230,10 +301,10 @@ func (g *Game) Update() error {
 			g.TempImage.Image, g.TempImage.TicksLeft = miscImg[2], 30
 		}
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyE) {
-		switch g.Elasticity {
+	if slices.Contains(newStrikes, ebiten.KeyE) {
+		switch elasticity {
 		case 1.0:
-			g.Elasticity = 1.15
+			elasticity = 1.15
 			g.TempImage.Image, g.TempImage.TicksLeft = miscImg[0], 30
 			for index, item := range shapeArray {
 				if index == int(counter) {
@@ -243,7 +314,7 @@ func (g *Game) Update() error {
 
 			}
 		default:
-			g.Elasticity = 1.0
+			elasticity = 1.0
 			g.TempImage.Image, g.TempImage.TicksLeft = miscImg[1], 30
 			for index, item := range shapeArray {
 				if index == int(counter) {
@@ -253,23 +324,23 @@ func (g *Game) Update() error {
 			}
 		}
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyA) && !*gravDisabled {
+	if slices.Contains(newStrikes, ebiten.KeyA) && !*gravDisabled {
 		space.SetGravity(space.Gravity().Sub(cp.Vector{X: 50, Y: 0}))
 		g.TempImage.Image, g.TempImage.TicksLeft = gravImages[1], 30
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyW) && !*gravDisabled {
+	if slices.Contains(newStrikes, ebiten.KeyW) && !*gravDisabled {
 		space.SetGravity(space.Gravity().Sub(cp.Vector{X: 0, Y: 50}))
 		g.TempImage.Image, g.TempImage.TicksLeft = gravImages[3], 30
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyS) && !*gravDisabled {
+	if slices.Contains(newStrikes, ebiten.KeyS) && !*gravDisabled {
 		space.SetGravity(space.Gravity().Add(cp.Vector{X: 0, Y: 50}))
 		g.TempImage.Image, g.TempImage.TicksLeft = gravImages[2], 30
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyD) && !*gravDisabled {
+	if slices.Contains(newStrikes, ebiten.KeyD) && !*gravDisabled {
 		space.SetGravity(space.Gravity().Add(cp.Vector{X: 50, Y: 0}))
 		g.TempImage.Image, g.TempImage.TicksLeft = gravImages[0], 30
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyR) {
+	if slices.Contains(newStrikes, ebiten.KeyR) {
 		space.SetGravity(cp.Vector{X: 0, Y: 300})
 		g.TempImage.Image, g.TempImage.TicksLeft = gravImages[4], 30
 	}
@@ -315,7 +386,7 @@ func (g *Game) Update() error {
 			g.Drawing = false
 		}
 	}
-	if (inpututil.IsKeyJustPressed(ebiten.KeySpace) || touch || inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0)) && !*autonomous && !g.Paused {
+	if (slices.Contains(newStrikes, ebiten.KeySpace) || touch || inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) || g.IsSpamming()) && !*autonomous && !g.Paused {
 		if writer > 499 {
 			writer = 0
 			g.HasWrapped = true
@@ -327,7 +398,7 @@ func (g *Game) Update() error {
 		ballArray[writer] = space.AddBody(cp.NewBody(mass, moment))
 		ballArray[writer].SetPosition(cp.Vector{X: 280 + float64(rand.Intn(80)), Y: -5})
 		var circle = space.AddShape(cp.NewCircle(ballArray[writer], radius, cp.Vector{X: 0, Y: 0}))
-		circle.SetElasticity(g.Elasticity)
+		circle.SetElasticity(elasticity)
 		circle.SetCollisionType(cp.CollisionHandlerDefault.TypeB)
 		shapeArray = append(shapeArray, circle)
 		g.Visible[writer] = true
@@ -337,7 +408,7 @@ func (g *Game) Update() error {
 		}
 		writer++
 		g.Inputless = 0
-	} else if auto && g.LastAuto == 15 && !g.Paused {
+	} else if auto && g.LastAuto == uint64(autoDelay) && !g.Paused {
 		if writer > 499 {
 			writer = 0
 			g.HasWrapped = true
@@ -349,7 +420,7 @@ func (g *Game) Update() error {
 		ballArray[writer] = space.AddBody(cp.NewBody(mass, moment))
 		ballArray[writer].SetPosition(cp.Vector{X: 280 + float64(rand.Intn(80)), Y: -5})
 		var circle = space.AddShape(cp.NewCircle(ballArray[writer], radius, cp.Vector{X: 0, Y: 0}))
-		circle.SetElasticity(g.Elasticity)
+		circle.SetElasticity(elasticity)
 		circle.SetCollisionType(cp.CollisionHandlerDefault.TypeB)
 		shapeArray = append(shapeArray, circle)
 		g.Visible[writer] = true
@@ -376,15 +447,15 @@ func (g *Game) Update() error {
 				g.TempImage.TicksLeft = 30
 			}
 
-			g.Tick(1.0/480.0, 16)
+			g.Step(1.0/1920.0, 64)
 		} else if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
 			if g.TempImage.Image != speedImg[1] {
 				g.TempImage.Image = speedImg[1]
 				g.TempImage.TicksLeft = 30
 			}
-			g.Tick(1.0/480.0, 4)
+			g.Step(1.0/960.0, 8)
 		} else {
-			g.Tick(1.0/480.0, 8)
+			g.Step(1.0/960.0, 16)
 		}
 		if inpututil.IsKeyJustReleased(ebiten.KeyArrowUp) || inpututil.IsKeyJustReleased(ebiten.KeyArrowDown) {
 			g.TempImage.Image = speedImg[2]
@@ -418,6 +489,16 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if *debugging {
 		msg := fmt.Sprintf("TPS: %0.2f\nFPS: %0.2f\n", ebiten.ActualTPS(), ebiten.ActualFPS())
 		ebitenutil.DebugPrint(screen, msg)
+		if throttling.Enabled {
+			switch throttling.Level {
+			case 1:
+				ebitenutil.DebugPrintAt(screen, "Performance throttled mildly.", 0, 30)
+			case 2:
+				ebitenutil.DebugPrintAt(screen, "Performance throttled moderately.", 0, 30)
+			case 3:
+				ebitenutil.DebugPrintAt(screen, "Performance throttled severely.", 0, 30)
+			}
+		}
 	}
 	if g.Drawing {
 		vector.DrawFilledCircle(screen, g.UserGen.X0, g.UserGen.Y0, 5, color.RGBA{0xff, 0xc0, 0xcb, 0xff}, true)
@@ -461,9 +542,7 @@ func main() {
 	ugc = flag.Bool("u", false, "Allow user-generated obstacles (default false)")
 	autonomous = flag.Bool("a", false, "Run autonomously only and ignore user input")
 	debugging = flag.Bool("d", false, "Show TPS and FPS in window corner")
-	var resizable = flag.Bool("r", false, "Disables resizing of the window")
-	resizableBool := !*resizable
-	resizable = &resizableBool
+	var resizable = flag.Bool("r", false, "Enable resizing of the window")
 	var imgFlag = flag.Bool("i", false, "Show actor image instead of circle")
 	flag.Parse()
 	imgMode = *imgFlag
@@ -474,7 +553,10 @@ func main() {
 		ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	}
 	ebiten.SetWindowDecorated(!undecorated)
-	if err := ebiten.RunGame(&Game{Radii: [500]float64{8}, Elasticity: 1.0, LastDebug: 60, Visible: [500]bool{true}, Resizable: *resizable}); err != nil {
+	// Change values to be 
+	go DetectLag(50, 50)
+	elasticity = 1.0
+	if err := ebiten.RunGame(&Game{Radii: [500]float64{8}, LastDebug: 60, Visible: [500]bool{true}, Resizable: *resizable}); err != nil {
 		log.Fatalln(err)
 	}
 }
