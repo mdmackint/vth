@@ -556,6 +556,7 @@ func main() {
 	// Change values to be 
 	go DetectLag(50, 50)
 	elasticity = 1.0
+	autoDelay = 15
 	if err := ebiten.RunGame(&Game{Radii: [500]float64{8}, LastDebug: 60, Visible: [500]bool{true}, Resizable: *resizable}); err != nil {
 		log.Fatalln(err)
 	}
