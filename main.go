@@ -408,7 +408,7 @@ func (g *Game) Update() error {
 		}
 		writer++
 		g.Inputless = 0
-	} else if auto && g.LastAuto == uint64(autoDelay) && !g.Paused {
+	} else if auto && g.LastAuto >= uint64(autoDelay) && !g.Paused {
 		if writer > 499 {
 			writer = 0
 			g.HasWrapped = true
