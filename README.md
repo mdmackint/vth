@@ -12,4 +12,4 @@ Other controls are as follows:
 - up / down: change speed
 - k: pause game
 
-I made this as a school project in about 1 day, so it's not very polished but it does work.
+I made the initial version of this as a school project in about 1 day, so it's not very polished but it does work.
