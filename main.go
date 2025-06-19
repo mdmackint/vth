@@ -21,10 +21,12 @@ import (
 	"github.com/jakecoffman/cp/v2"
 )
 
+const maxShapes = 1000
+
 type Game struct {
-	Visible    [500]bool
-	Pos        [500]cp.Vector
-	Radii      [500]float64
+	Visible    [maxShapes]bool
+	Pos        [maxShapes]cp.Vector
+	Radii      [maxShapes]float64
 	Inputless  uint64
 	LastAuto   uint64
 	UserGen    line
@@ -59,11 +61,15 @@ type throttle struct {
 }
 
 var (
+	undecorated bool
+	resizable *bool
+	imgFlag *bool
+	blank *bool
 	elasticity float64
 	gravDisabled *bool
 	ugc          *bool
 	space        *cp.Space
-	ballArray    [500]*cp.Body
+	ballArray    [maxShapes]*cp.Body
 	shapeArray   []*cp.Shape
 	gravImages   [6]*ebiten.Image
 	pauseImg     [2]*ebiten.Image
@@ -184,6 +190,17 @@ func (g *Game) Step(div float64, f int) {
 }
 
 func init() {
+	instaclose = flag.Bool("instaclose", false, "Instantly quit on first frame - debugging only!")
+	gravDisabled = flag.Bool("g", false, "Disable gravity controls")
+	undecorated = *flag.Bool("t", false, "Hide titlebar of window")
+	ugc = flag.Bool("u", false, "Allow user-generated obstacles (default true)")
+	*ugc = !*ugc
+	autonomous = flag.Bool("a", false, "Run autonomously only and ignore user input")
+	debugging = flag.Bool("d", false, "Show TPS and FPS in window corner")
+	resizable = flag.Bool("r", false, "Enable resizing of the window")
+	imgFlag = flag.Bool("i", false, "Show actor image instead of circle")
+	blank = flag.Bool("b", false, "Start without any paths")
+	flag.Parse()
 	autoDelay = 15
 	var err error
 	// Load actor (mario coin)
@@ -216,21 +233,23 @@ func init() {
 	space = cp.NewSpace()
 	space.SetGravity(cp.Vector{X: 0.0, Y: 300.0})
 	// Add obstacles and set properties
-	obstGen(160, 100, 320, 60, 4.0, true)
-	obstGen(320, 60, 480, 100, 4.0, true)
-	obstGen(0, 140, 160, 180, 4.0, true)
-	obstGen(640, 140, 480, 180, 4.0, true)
-	obstGen(-2, 0, -2, 0x300, 10.0, false)
-	obstGen(0x282, 0, 0x282, 0x300, 10.0, false)
-	obstGen(0, -5, 0x280, -5, 4.0, false)
-	obstGen(0, 240, 500, 300, 4.0, true)
-	obstGen(640, 400, 140, 460, 4.0, true)
-	obstGen(0, 520, 300, 600, 4.0, true)
-	obstGen(640, 520, 340, 600, 4.0, true)
-	for _, x := range obst {
-		x.SetFriction(1)
-		x.SetElasticity(0.25)
-		space.AddShape(x)
+	if !*blank {
+		obstGen(160, 100, 320, 60, 4.0, true)
+		obstGen(320, 60, 480, 100, 4.0, true)
+		obstGen(0, 140, 160, 180, 4.0, true)
+		obstGen(640, 140, 480, 180, 4.0, true)
+		obstGen(-2, 0, -2, 0x300, 10.0, false)
+		obstGen(0x282, 0, 0x282, 0x300, 10.0, false)
+		obstGen(0, -5, 0x280, -5, 4.0, false)
+		obstGen(0, 240, 500, 300, 4.0, true)
+		obstGen(640, 400, 140, 460, 4.0, true)
+		obstGen(0, 520, 300, 600, 4.0, true)
+		obstGen(640, 520, 340, 600, 4.0, true)
+		for _, x := range obst {
+			x.SetFriction(1)
+			x.SetElasticity(0.25)
+			space.AddShape(x)
+		}
 	}
 	// Generate first ball and set some properties
 	radius = 8.0
@@ -324,6 +343,9 @@ func (g *Game) Update() error {
 			}
 		}
 	}
+	if g.Paused && inpututil.IsKeyJustPressed(ebiten.KeyX) {
+		g.Step(1.0/960.0, 64)
+	}
 	if slices.Contains(newStrikes, ebiten.KeyA) && !*gravDisabled {
 		space.SetGravity(space.Gravity().Sub(cp.Vector{X: 50, Y: 0}))
 		g.TempImage.Image, g.TempImage.TicksLeft = gravImages[1], 30
@@ -387,13 +409,13 @@ func (g *Game) Update() error {
 		}
 	}
 	if (slices.Contains(newStrikes, ebiten.KeySpace) || touch || inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) || g.IsSpamming()) && !*autonomous && !g.Paused {
-		if writer > 499 {
+		if writer > maxShapes-1 {
 			writer = 0
 			g.HasWrapped = true
 		}
 		if g.HasWrapped {
 			space.RemoveBody(ballArray[writer])
-			space.RemoveShape(shapeArray[len(shapeArray)-499])
+			space.RemoveShape(shapeArray[len(shapeArray)-(maxShapes-1)])
 		}
 		ballArray[writer] = space.AddBody(cp.NewBody(mass, moment))
 		ballArray[writer].SetPosition(cp.Vector{X: 280 + float64(rand.Intn(80)), Y: -5})
@@ -403,19 +425,19 @@ func (g *Game) Update() error {
 		shapeArray = append(shapeArray, circle)
 		g.Visible[writer] = true
 		g.Radii[writer] = radius
-		if counter < 499 {
+		if counter < maxShapes-1 {
 			counter++
 		}
 		writer++
 		g.Inputless = 0
 	} else if auto && g.LastAuto >= uint64(autoDelay) && !g.Paused {
-		if writer > 499 {
+		if writer > maxShapes-1 {
 			writer = 0
 			g.HasWrapped = true
 		}
 		if g.HasWrapped {
 			space.RemoveBody(ballArray[writer])
-			space.RemoveShape(shapeArray[len(shapeArray)-499])
+			space.RemoveShape(shapeArray[len(shapeArray)-(maxShapes-1)])
 		}
 		ballArray[writer] = space.AddBody(cp.NewBody(mass, moment))
 		ballArray[writer].SetPosition(cp.Vector{X: 280 + float64(rand.Intn(80)), Y: -5})
@@ -425,7 +447,7 @@ func (g *Game) Update() error {
 		shapeArray = append(shapeArray, circle)
 		g.Visible[writer] = true
 		g.Radii[writer] = radius
-		if counter < 499 {
+		if counter < maxShapes-1 {
 			counter++
 		}
 		writer++
@@ -536,15 +558,6 @@ func (g *Game) Layout(ow, oh int) (w, h int) {
 	return 0x280, 0x2ba
 }
 func main() {
-	instaclose = flag.Bool("instaclose", false, "Instantly quit on first frame - debugging only!")
-	gravDisabled = flag.Bool("g", false, "Disable gravity controls")
-	var undecorated = *flag.Bool("t", false, "Hide titlebar of window")
-	ugc = flag.Bool("u", false, "Allow user-generated obstacles (default false)")
-	autonomous = flag.Bool("a", false, "Run autonomously only and ignore user input")
-	debugging = flag.Bool("d", false, "Show TPS and FPS in window corner")
-	var resizable = flag.Bool("r", false, "Enable resizing of the window")
-	var imgFlag = flag.Bool("i", false, "Show actor image instead of circle")
-	flag.Parse()
 	imgMode = *imgFlag
 	ebiten.SetWindowTitle("vth")
 	ebiten.SetWindowSize(0x280, 0x2ba)
@@ -557,7 +570,7 @@ func main() {
 	go DetectLag(50, 50)
 	elasticity = 1.0
 	autoDelay = 15
-	if err := ebiten.RunGame(&Game{Radii: [500]float64{8}, LastDebug: 60, Visible: [500]bool{true}, Resizable: *resizable}); err != nil {
+	if err := ebiten.RunGame(&Game{Radii: [maxShapes]float64{8}, LastDebug: 60, Visible: [maxShapes]bool{true}, Resizable: *resizable}); err != nil {
 		log.Fatalln(err)
 	}
 }
