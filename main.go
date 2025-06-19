@@ -159,7 +159,7 @@ func loadImage(path string) *ebiten.Image {
 		return nil
 	}
 }
-func loadMultiple(paths []string) []*ebiten.Image {
+func loadMultiple(paths ...string) []*ebiten.Image {
 	var images []*ebiten.Image
 	for n, i := range paths {
 		x, _, err := ebitenutil.NewImageFromFileSystem(fs, i)
@@ -212,18 +212,18 @@ func init() {
 	}
 
 	// Load gravity control messages, copy them into array
-	images := loadMultiple([]string{"data/xgravadd.png", "data/xgravsub.png", "data/ygravadd.png", "data/ygravsub.png", "data/gravreset.png", "data/gravlimit.png"})
+	images := loadMultiple("data/xgravadd.png", "data/xgravsub.png", "data/ygravadd.png", "data/ygravsub.png", "data/gravreset.png", "data/gravlimit.png")
 	copy(gravImages[:], images[:])
 
 	// Load pause messages, copy them into array
-	pauseDialogues := loadMultiple([]string{"data/paused.png", "data/resumed.png"})
+	pauseDialogues := loadMultiple("data/paused.png", "data/resumed.png")
 	copy(pauseImg[:], pauseDialogues[:])
 
 	// Load speed control messages, copy them into array
-	speedImgSlice := loadMultiple([]string{"data/speedup.png", "data/slowdown.png", "data/normalspeed.png"})
+	speedImgSlice := loadMultiple("data/speedup.png", "data/slowdown.png", "data/normalspeed.png")
 	copy(speedImg[:], speedImgSlice[:])
 
-	miscImgSlice := loadMultiple([]string{"data/elasticadd.png", "data/elasticsub.png", "data/fixedrad.png", "data/randrad.png"})
+	miscImgSlice := loadMultiple("data/elasticadd.png", "data/elasticsub.png", "data/fixedrad.png", "data/randrad.png")
 	copy(miscImg[:], miscImgSlice[:])
 
 	// Append icon image to slice
